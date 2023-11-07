@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Minecraft-Inspired Landscape with Day and Night Cycle</title>
+  <!-- Include p5.js library for creative coding -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+</head>
+<body>
+  <script>
+    let cols, rows;
+    let scl = 20;
+    let terrain = [];
+    let flying = 0;
+    let zoom = 0;
+    let lightAngle = 0;
+    let treePositions = [];
+    let clouds = [];
+    let sun;
+    let isDay = true;
+    let birds = [];
+    let raindrops = [];
+    let lightning = false;
+    let fish = [];
+
+    function drawFish(x, y, size) {
+      push();
+      translate(x, y, 0);
+      fill(255, 0, 0); // Red (Fish Body)
+      box(size, size / 2, size / 4); // Fish Body
+
+      fill(0, 0, 255); // Blue (Fish Tail)
+      translate(size / 2, 0, 0);
+      box(size / 4, size / 2, size / 4); // Fish Tail
+
+      fill(255, 255, 0); // Yellow (Fish Eye)
+      translate(-size / 2, 0, size / 4);
+      box(size / 8, size / 8, size / 8); // Fish Eye
+      pop();
+    }
+
+    function setup() {
+      createCanvas(800, 800, WEBGL);
+      cols = floor(width / scl);
+      rows = floor(height / scl);
+
+      // Modify terrain generation to make grassy areas taller
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (terrain[y] && terrain[y][x] >= 30) {
+            terrain[y][x] += 20; // Increase the height value for grassy areas
+          }
+        }
+      }
+
+      // Initialize clouds
+      for (let i = 0; i < 5; i++) {
+        let x = random(width);
+        let y = random(100, 300);
+        let z = random(100, 300);
+        clouds.push({ x, y, z });
+      }
+
+      // Set initial sun position and color
+      sun = createVector(400, -200, 100);
+
+      // Create some initial bird positions
+      for (let i = 0; i < 5; i++) {
+        birds.push({
+          x: random(width),
+          y: random(200),
+          wingSpan: 20,
+          color: color(random(255), random(255), random(255))
+        });
+      }
+
+      // Create initial raindrops
+      for (let i = 0; i < 200; i++) {
+        let x = random(width);
+        let y = random(-200, -100);
+        let z = random(200);
+        raindrops.push({ x, y, z });
+      }
+    }
+
+    function drawBird(x, y, wingSpan, color) {
+      fill(color);
+      noStroke();
+      triangle(x, y, x - wingSpan / 2, y - 10, x + wingSpan / 2, y - 10);
+      ellipse(x, y, 15, 10);
+    }
+
+    function drawBlockyFish(x, y, size) {
+      push();
+      translate(x, y);
+      fill(255, 0, 0); // Red (Fish Body)
+      rect(0, 0, size, size / 2); // Fish Body
+
+      fill(0, 0, 255); // Blue (Fish Tail)
+      triangle(size, 0, size + size / 2, size / 4, size + size / 2, -size / 4); // Fish Tail
+
+      fill(255, 255, 0); // Yellow (Fish Eye)
+      ellipse(size / 4, size / 4, size / 5, size / 5); // Fish Eye
+      pop();
+    }
+
+    function drawCircularFish(x, y, size) {
+      push();
+      translate(x, y);
+      fill(0, 255, 0); // Green (Fish Body)
+      ellipse(0, 0, size, size / 2); // Fish Body
+
+      fill(255, 0, 0); // Red (Fish Eye)
+      ellipse(size / 4, 0, size / 5, size / 5); // Fish Eye
+      pop();
+    }
+
+    function draw() {
+      // Calculate the background color and time of day
+      let bgColor;
+      if (isDay) {
+        ambientLight(220, 220, 220); // Increase ambient light for day
+        directionalLight(255, 255, 255, 0, 1, -1); // Increase directional light for day
+        bgColor = color(173, 216, 230); // Light Blue (Day Sky)
+      } else {
+        ambientLight(50, 50, 50); // Increase ambient light for night
+        directionalLight(150, 150, 150, 0, 1, -1); // Increase directional light for night
+        bgColor = color(0, 0, 51); // Dark Blue (Night Sky)
+      }
+
+      if (lightning) {
+        // Simulate lightning by briefly changing the background color
+        bgColor = color(255); // White (Lightning)
+        lightning = false;
+      }
+
+      background(bgColor);
+
+      let yoff = flying;
+
+      for (let y = 0; y < rows; y++) {
+        let xoff = 0;
+        terrain[y] = [];
+        for (let x = 0; x < cols; x++) {
+          let a = map(x, 0, cols, -PI, PI);
+          let b = map(y, 0, rows, -PI, PI);
+          let n = noise(xoff, yoff);
+          let m = map(n, 0, 1, -150, 150);
+          let r = map(sin(a) * sin(b), -1, 1, -100, 100);
+          terrain[y][x] = m + r;
+          xoff += 0.1;
+        }
+        yoff += 0.1;
+      }
+
+      translate(0, 0, zoom);
+      zoom -= 0.1;
+      translate(-width / 2, -height / 2, -200);
+      rotateX(PI / 3);
+
+     // Render trees and make them sway
+      for (let i = 0; i < treePositions.length; i++) {
+        let treePos = treePositions[i];
+        let sway = sin(millis() / 1000 + i) * 5;
+        push();
+        translate(treePos.x, treePos.y, 0);
+        fill(139, 69, 19); // Brown
+        box(10, 10, 50 + sway); // Tree trunk
+        translate(0, 0, 50 + sway);
+        fill(34, 139, 34); // Green
+        box(30, 60 + sway, 30); // Tree leaves
+        pop();
+      }
+
+      // Render terrain
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols; x++) {
+          let h = terrain[y][x];
+          push();
+          translate(x * scl, y * scl, h / 2);
+
+          if (h < 0) {
+            fill(51, 102, 204); // Water (Blue)
+          } else if (h < 10) {
+            fill(120); // Stone (Gray)
+          } else if (h < 15) {
+            fill(194, 178, 128); // Sand (Light Brown)
+          } else if (h < 30) {
+            fill(139, 69, 19); // Dirt (Brown)
+          } else if (h < 40) {
+            fill(205, 133, 63); // Mud (Light Brown)
+          } else if (h < 50) {
+            fill(128); // Rock (Gray)
+          } else if (h < 60) {
+            fill(255); // Snow (White)
+          } else {
+            fill(34, 139, 34); // Higher Grass (Green) - Adjust the height value as needed
+          }
+
+          box(scl, scl, h);
+          pop();
+        }
+      }
+
+      // Move and render blocky clouds
+      for (let i = 0; i < clouds.length; i++) {
+        let cloud = clouds[i];
+        cloud.x += 0.1;
+        if (cloud.x > width) {
+          cloud.x = -100;
+        }
+
+        push();
+        translate(cloud.x, cloud.y, cloud.z);
+        fill(255, 255, 255, 150); // Cloud color
+
+        // Render a cube-like cloud with more separation
+        for (let j = -1; j <= 1; j++) {
+          for (let k = -1; k <= 1; k++) {
+            for (let l = -1; l <= 1; l++) {
+              let cloudSize = 40;
+              translate(j * cloudSize, k * cloudSize, l * cloudSize);
+              box(cloudSize); // Cube-like cloud
+            }
+          }
+        }
+        pop();
+      }
+
+      // Render the blocky sun or moon based on the time of day
+      if (isDay) {
+        push();
+        translate(sun.x, sun.y, sun.z);
+        fill(255, 255, 0); // Yellow (Sun)
+        box(50); // Blocky sun
+        pop();
+      } else {
+        push();
+        translate(sun.x, sun.y, sun.z);
+        fill(192, 192, 192); // Light Gray (Moon)
+        box(50); // Blocky moon
+        pop();
+      }
+
+      // Draw and update the birds
+      for (let i = 0; i < birds.length; i++) {
+        let bird = birds[i];
+        drawBird(bird.x, bird.y, bird.wingSpan, bird.color);
+
+        // Move the birds from right to left
+        bird.x -= 2;
+
+        // If a bird goes off the left side of the canvas, reset its position to the right
+        if (bird.x < -bird.wingSpan) {
+          bird.x = width + bird.wingSpan;
+          bird.y = random(200);
+        }
+      }
+
+      // Modify the size of the raindrops to make them appear denser
+      for (let i = 0; i < raindrops.length; i++) {
+        let raindrop = raindrops[i];
+        raindrop.z -= 5; // Adjust the speed to make them fly upwards
+
+        if (raindrop.z < -200) {
+          // Reset raindrop position if it moves far from the viewer
+          raindrop.x = random(width);
+          raindrop.y = random(100, 300); // Start from the clouds
+          raindrop.z = random(200);
+        }
+
+        push();
+        translate(raindrop.x, raindrop.y, raindrop.z);
+        fill(51, 153, 255);
+        noStroke();
+        box(8); // Reduce the size of raindrops to make them a bit smaller
+        pop();
+      }
+
+      // Update the time of day
+      if (sin(lightAngle) >= 0) {
+        isDay = true;
+      } else {
+        isDay = false;
+      }
+
+      flying -= 0.05;
+
+      lightAngle += 0.0025;
+
+      // Render and update the fish
+      for (let i = 0; i < fish.length; i++) {
+        let fishObj = fish[i];
+        drawFish(fishObj.x, fishObj.y, fishObj.size);
+
+        // Update fish positions or animations here if needed
+        fishObj.x += random(-1, 1); // Make fish move randomly in the x-direction
+        fishObj.y += random(-1, 1); // Make fish move randomly in the y-direction
+
+        // Wrap fish around if they go off-screen
+        if (fishObj.x > width) {
+          fishObj.x = 0;
+        } else if (fishObj.x < 0) {
+          fishObj.x = width;
+        }
+        if (fishObj.y > 300) {
+          fishObj.y = 100;
+        } else if (fishObj.y < 100) {
+          fishObj.y = 300;
+        }
+      }
+    }
+
+    function keyPressed() {
+      // Simulate lightning when a key is pressed (for example, 'L' key)
+      if (key === 'L' || key === 'l') {
+        lightning = true;
+      }
+    }
+    function addMoonGlow(context, moonX, moonY, moonRadius, glowRadius) {
+  // Save the current context settings
+  context.save();
+
+  // Create a radial gradient for the moon's glow
+  const gradient = context.createRadialGradient(
+    moonX, moonY, moonRadius - glowRadius,
+    moonX, moonY, moonRadius + glowRadius
+  );
+
+  // Define the colors for the glow (e.g., yellow with transparency)
+  gradient.addColorStop(0, 'rgba(255, 255, 0, 0.5)'); // Adjust opacity as needed
+  gradient.addColorStop(1, 'rgba(255, 255, 0, 0)'); // Adjust opacity as needed
+
+  // Apply the glow gradient to the moon
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.arc(moonX, moonY, moonRadius + glowRadius, 0, Math.PI * 2);
+  context.fill();
+
+  // Restore the context settings to their previous state
+  context.restore();
+}
+
+// Example usage:
+const canvas = document.getElementById('yourCanvas'); // Replace with your canvas ID
+const ctx = canvas.getContext('2d');
+
+// Call the function to add a glow around the moon
+addMoonGlow(ctx, moonX, moonY, moonRadius, glowRadius);
+  </script>
+</body>
+</html>
